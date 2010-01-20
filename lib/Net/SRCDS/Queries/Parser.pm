@@ -2,7 +2,7 @@ package Net::SRCDS::Queries::Parser;
 
 use warnings;
 use strict;
-use version; our $VERSION = qv('0.0.1');
+use version; our $VERSION = qv('0.0.2');
 use Encode qw(from_to);
 
 # Source Server Queries
@@ -14,6 +14,7 @@ sub parse_packet {
     my $t = unpack 'x4a', $buf;
     if ( $t eq 'A' ) {
         my $result = $self->parse_challenge($buf);
+        $self->send_a2s_rules( $sender, $result->{cnum} );
         $self->send_a2s_player( $sender, $result->{cnum} );
     }
     elsif ( $t eq 'I' ) {
@@ -23,6 +24,11 @@ sub parse_packet {
     elsif ( $t eq 'D' ) {
         my $result = $self->parse_a2s_player($buf);
         $self->{results}->{$server}->{player} = $result;
+        return 1;
+    }
+    elsif ( $t eq 'E' ) {
+        my $result = $self->parse_a2s_rules($buf);
+        $self->{results}->{$server}->{rules} = $result;
         return 1;
     }
     return 0;
@@ -99,6 +105,30 @@ sub parse_a2s_player {
     return $result;
 }
 
+sub parse_a2s_rules {
+    my( $self, $buf ) = @_;
+    my $encoding = $self->{encoding};
+    my( $type, $num_rules, $r1 ) = unpack 'x4aca*', $buf;
+    my( undef, $followings ) = ( split /\0/, $r1, 2 );
+    my $rules_info;
+    while ($followings) {
+        my( $name, $value, $r2 ) = ( split /\0/, $followings, 3 );
+        push @{$rules_info},
+            {
+            name  => $name,
+            value => $value,
+            };
+        $followings = $r2;
+    }
+
+    my $result = {
+        type       => $type,
+        num_rules  => $num_rules,
+        rules_info => $rules_info,
+    };
+    return $result;
+}
+
 sub parse_challenge {
     my( $self, $buf ) = @_;
     my( $type, $cnum ) = unpack 'x4aa4', $buf;
@@ -118,7 +148,7 @@ Net::SRCDS::Queries::Parser - Stream parser for Net::SRCDS::Querires
 
 =head1 VERSION
 
-This document describes Net::SRCDS::Queries::Parser version 0.0.1
+This document describes Net::SRCDS::Queries::Parser version 0.0.2
 
 
 =head1 SYNOPSIS
@@ -139,7 +169,7 @@ defined parser methods for SRCDS packets.
     my $result = $self->parse_packet( $buf, $server, $sender );
 
 parse SRCDS packet and store result in $self->{result}.
-return true when A2S_INFO pakcet received.
+return true when A2S_PLAYER, A2S_RULES pakcet received.
 
 =item parse_challenge
 
@@ -158,6 +188,12 @@ parse A2S_INFO packet and return result as hash ref.
     my $result = $self->parse_a2s_player($buf);
 
 parse A2S_PLAYER packet and return result as hash ref.
+
+=item parse_a2s_rules
+
+    my $result = $self->parse_a2s_rules($buf);
+
+parse A2S_RULES packet and return result as hash ref.
 
 =back
 
@@ -182,7 +218,7 @@ Masanori Hara  C<< <massa.hara at gmail.com> >>
 
 =head1 LICENCE AND COPYRIGHT
 
-Copyright (c) 2009, Masanori Hara C<< <massa.hara at gmail.com> >>.
+Copyright (c) 2010, Masanori Hara C<< <massa.hara at gmail.com> >>.
 
 This module is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself. See L<perlartistic>.

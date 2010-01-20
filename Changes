@@ -2,3 +2,6 @@ Revision history for Net-SRCDS-Queries
 
 0.0.1  Mon May 18 22:49:28 2009
        Initial release.
+
+0.0.2  Wed Jan 20 13:00:37 2010
+       add a2s_rules support.

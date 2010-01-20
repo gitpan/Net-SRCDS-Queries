@@ -2,7 +2,7 @@ package Net::SRCDS::Queries;
 
 use warnings;
 use strict;
-use version; our $VERSION = qv('0.0.1');
+use version; our $VERSION = qv('0.0.2');
 use Carp qw(croak);
 use IO::Socket::INET;
 use IO::Select;
@@ -30,7 +30,7 @@ sub new {
         socket   => $socket,
         select   => $select,
         servers  => [],
-        timeout  => $args{timeout}  || 3,
+        timeout  => $args{timeout} || 3,
         encoding => $args{encoding} || undef,
     };
     bless $self, $class;
@@ -50,19 +50,26 @@ sub get_all {
         $self->send_a2s_info($dest);
         $self->send_challenge($dest);
     }
-    my $finished = 0;
-    LOOP : while (1) {
+    my $finished = {};
+LOOP: while (1) {
         my @ready = $select->can_read($timeout);
         for my $fh (@ready) {
             my $sender = $fh->recv( my $buf, MAX_SOCKBUF );
             my( $port, $addr ) = sockaddr_in $sender;
             my $server = sprintf "%s:%s", inet_ntoa($addr), $port;
             my $result = $self->parse_packet( $buf, $server, $sender );
-            $finished++ if $result;
-            last LOOP if $finished >= scalar @{ $self->{servers} };
+            my $sr = $self->{results}->{$server};
+            if ( exists $sr->{player} and exists $sr->{rules} ) {
+                $finished->{$server}++;
+            }
+            last LOOP
+                if scalar keys %{$finished} >= scalar @{ $self->{servers} };
         }
         # exit loop when you get nothing
-        last unless @ready;
+        unless (@ready) {
+            warn "no ready\n";
+            last LOOP;
+        }
     }
     return $self->{results};
 }
@@ -85,6 +92,12 @@ sub send_a2s_player {
     $socket->send( A2S_PLAYER . $cnum, 0, $dest );
 }
 
+sub send_a2s_rules {
+    my( $self, $dest, $cnum ) = @_;
+    my $socket = $self->{socket};
+    $socket->send( A2S_RULES . $cnum, 0, $dest );
+}
+
 sub get_result {
     my($self) = @_;
     return $self->{results};
@@ -100,7 +113,7 @@ Net::SRCDS::Queries - Perl interface to Source Server Queries
 
 =head1 VERSION
 
-This document describes Net::SRCDS::Queries version 0.0.1
+This document describes Net::SRCDS::Queries version 0.0.2
 
 
 =head1 SYNOPSIS
@@ -183,7 +196,10 @@ send A2S_PLAYER packet to the destination $dest.
 
 =item send_a2s_rules
 
-not implemented yet.
+    my $dest = sockaddr_in $port, inet_aton $addr;
+    $self->send_a2s_rules( $dest, $challenge );
+
+send A2S_RULES packet to the destination $dest.
 
 =item get_result
 
@@ -224,7 +240,7 @@ Masanori Hara  C<< <massa.hara at gmail.com> >>
 
 =head1 LICENCE AND COPYRIGHT
 
-Copyright (c) 2009, Masanori Hara C<< <massa.hara at gmail.com> >>.
+Copyright (c) 2010, Masanori Hara C<< <massa.hara at gmail.com> >>.
 
 This module is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself. See L<perlartistic>.
