@@ -75,7 +75,10 @@ SKIP: {
     $q->{socket}->recv( $buf, 65535 );
     $result = $q->parse_a2s_player($buf);
 
+    # XXX : unpack( 'f', $xx ); returns different value
+    # in some enviromnent.
     is int $result->{player_info}->[0]->{connected}, 57;
+
     is $result->{player_info}->[0]->{name}, 'Massa';
     is $result->{player_info}->[0]->{kills}, 0;
     is $result->{num_players}, 1;

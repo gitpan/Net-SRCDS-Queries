@@ -2,7 +2,7 @@ use Test::More qw(no_plan);
 use lib '../lib';
 
 BEGIN {
-use_ok( 'Net::SRCDS::Queries' );
+    use_ok('Net::SRCDS::Queries');
 }
 
 my $q = Net::SRCDS::Queries->new;

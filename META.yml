@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               Net-SRCDS-Queries
-version:            0.0.2
+version:            0.0.3
 abstract:           Perl interface to Source Server Queries
 author:
     - Masanori Hara <massa.hara at gmail.com>

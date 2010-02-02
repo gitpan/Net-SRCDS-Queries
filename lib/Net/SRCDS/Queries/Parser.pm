@@ -2,12 +2,8 @@ package Net::SRCDS::Queries::Parser;
 
 use warnings;
 use strict;
-use version; our $VERSION = qv('0.0.2');
+use version; our $VERSION = qv('0.0.3');
 use Encode qw(from_to);
-
-# Source Server Queries
-# http://developer.valvesoftware.com/wiki/Source_Server_Queries
-#
 
 sub parse_packet {
     my( $self, $buf, $server, $sender ) = @_;
@@ -41,7 +37,7 @@ sub parse_a2s_info {
     my(
         $app_id, $players, $max,    $bots, $dedicated,
         $os,     $pw,      $secure, $remains2
-    ) = unpack 'scccaacca*', $remains;
+    ) = unpack 'vcccaacca*', $remains;
     my( $gversion, $remains3 ) = split /\0/, $remains2, 2;
 
     my $result = {
@@ -64,7 +60,7 @@ sub parse_a2s_info {
     my( $edf, $opt ) = unpack 'ca*', $remains3;
     if ( $edf & 0x80 ) {
         my $port;
-        ( $port, $opt ) = unpack 'sa*', $opt;
+        ( $port, $opt ) = unpack 'va*', $opt;
         $result->{port} = $port;
     }
     if ( $edf & 0x40 ) {
@@ -88,6 +84,14 @@ sub parse_a2s_player {
         my( $name, $r2 ) = ( split /\0/, $r1, 2 );
         from_to( $name, 'utf8', $encoding ) if $encoding;
         my( $kills, $connected, $r3 ) = unpack 'lfa*', $r2;
+        # XXX : reverse float for some environment
+        if ( $self->{float_order} ) {
+            my $hex = unpack 'H*', pack 'f', $connected;
+            my @b;
+            $hex =~ s/(.{2})/push(@b, $1)/seg;
+            $hex = join '', reverse @b;
+            $connected = unpack 'f', pack 'H*', $hex;
+        }
         push @{$player_info},
             {
             name      => $name,
@@ -138,6 +142,15 @@ sub parse_challenge {
     };
 }
 
+use constant base_number => 76561197960265728;
+sub id2community_id {
+    my( $self, $id ) = @_;
+    my( $n1, $n2, $n3 ) = ( $id =~ /STEAM_(\d):(\d):(\d+)/i );
+    return unless defined $n1;
+    my $community_id = base_number + $n2 + ( $n3 * 2 );
+    return $community_id;
+}
+
 1;
 __END__
 
@@ -148,7 +161,7 @@ Net::SRCDS::Queries::Parser - Stream parser for Net::SRCDS::Querires
 
 =head1 VERSION
 
-This document describes Net::SRCDS::Queries::Parser version 0.0.2
+This document describes Net::SRCDS::Queries::Parser version 0.0.3
 
 
 =head1 SYNOPSIS
@@ -194,6 +207,13 @@ parse A2S_PLAYER packet and return result as hash ref.
     my $result = $self->parse_a2s_rules($buf);
 
 parse A2S_RULES packet and return result as hash ref.
+
+=item id2community_id
+
+    my $community_id = $self->id2community_id($steam_id);
+
+convers STEAM_ID to to Steam Community ID.
+See L<http://forums.alliedmods.net/showthread.php?t=60899> for details.
 
 =back
 

@@ -2,7 +2,7 @@ package Net::SRCDS::Queries;
 
 use warnings;
 use strict;
-use version; our $VERSION = qv('0.0.2');
+use version; our $VERSION = qv('0.0.3');
 use Carp qw(croak);
 use IO::Socket::INET;
 use IO::Select;
@@ -33,6 +33,8 @@ sub new {
         timeout  => $args{timeout} || 3,
         encoding => $args{encoding} || undef,
     };
+    $self->{float_order} =
+        unpack( 'H*', pack( 'f', 1.05 ) ) eq '6666863f' ? 0 : 1;
     bless $self, $class;
 }
 
@@ -113,7 +115,7 @@ Net::SRCDS::Queries - Perl interface to Source Server Queries
 
 =head1 VERSION
 
-This document describes Net::SRCDS::Queries version 0.0.2
+This document describes Net::SRCDS::Queries version 0.0.3
 
 
 =head1 SYNOPSIS
@@ -170,8 +172,8 @@ adds server to server list for get_all method.
 
     my $result = $q->get_all;
 
-send A2S_INFO, A2S_SERVERQUERY_GETCHALLENGE, A2S_PLAYER to server list
-and retrieve result.
+send A2S_INFO, A2S_SERVERQUERY_GETCHALLENGE, A2S_RULES, A2S_PLAYER to
+server list and retrieve result.
 
 =item send_challenge
 
